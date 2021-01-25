@@ -29,6 +29,7 @@
 #include "Boundaries.h"
 #include "Pipeline.h"
 #include "SolidEffect.h"
+#include "Action.h"
 #include <random>
 
 class Game
@@ -58,5 +59,6 @@ private:
 	b2World world;
 	Boundaries bounds = Boundaries( world,boundarySize );
 	std::vector<std::unique_ptr<Box>> boxPtrs;
+	std::vector<std::unique_ptr<Action>> actionPtrs;
 	/********************************/
 };

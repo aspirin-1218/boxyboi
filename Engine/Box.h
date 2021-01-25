@@ -91,6 +91,23 @@ public:
 	{
 		return *pColorTrait;
 	}
+	void Mark4Death()
+	{
+		isDead = true;
+	}
+	bool IsDying() const
+	{
+		return isDead;
+	}
+	void AssumeColorTrait(const Box& b)
+	{
+		pColorTrait = b.GetColorTrait().Clone();
+	}
+	void AssumeColorTrait(std::unique_ptr<Box::ColorTrait> colorTrait)
+	{
+		pColorTrait = std::move(colorTrait);
+	}
+	std::vector<std::unique_ptr<Box>> Split(b2World& world);
 private:
 	static void Init()
 	{
@@ -105,4 +122,5 @@ private:
 	float size;
 	BodyPtr pBody;
 	std::unique_ptr<ColorTrait> pColorTrait;
+	bool isDead = false;
 };

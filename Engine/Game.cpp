@@ -21,6 +21,8 @@
 #include "MainWindow.h"
 #include "Game.h"
 #include "Box.h"
+#include "PatternMatchingListener.h"
+#include "ColorTrait.h"
 #include <algorithm>
 #include <sstream>
 #include <typeinfo>
@@ -41,29 +43,28 @@ Game::Game( MainWindow& wnd )
 		return Box::Spawn( boxSize,bounds,world,rng );
 	} );
 
-	class Listener : public b2ContactListener
+	static PatternMatchingListener mrLister;
+	mrLister.AddCases<RedTrait, WhiteTrait>([](Box& r, Box& w)
 	{
-	public:
-		void BeginContact( b2Contact* contact ) override
+		r.Mark4Death();
+	});
+	mrLister.AddCases<YellowTrait, BlueTrait>([this](Box& y, Box& b)
 		{
-			const b2Body* bodyPtrs[] = { contact->GetFixtureA()->GetBody(),contact->GetFixtureB()->GetBody() };
-			if( bodyPtrs[0]->GetType() == b2BodyType::b2_dynamicBody &&
-				bodyPtrs[1]->GetType() == b2BodyType::b2_dynamicBody )
-			{
-				Box* boxPtrs[] = { 
-					reinterpret_cast<Box*>(bodyPtrs[0]->GetUserData()),
-					reinterpret_cast<Box*>(bodyPtrs[1]->GetUserData())
-				};
-				auto& tid0 = typeid(boxPtrs[0]->GetColorTrait());
-				auto& tid1 = typeid(boxPtrs[1]->GetColorTrait());
-
-				std::stringstream msg;
-				msg << "Collision between " << tid0.name() << " and " << tid1.name() << std::endl;
-				OutputDebugStringA( msg.str().c_str() );
-			}
+			//make_unique is like new, but make it exclusive and more of controllable
+			actionPtrs.push_back(std::make_unique<Tag>(y, b.GetColorTrait().Clone()));
+		});
+	mrLister.AddCases<WhiteTrait, BlueTrait>([this](Box& w, Box& b)
+	{
+		if(w.GetSize()>b.GetSize() && w.GetSize()>0.2f)
+		{
+			actionPtrs.push_back(std::make_unique<Split>(w));
 		}
-	};
-	static Listener mrLister;
+		else if (b.GetSize() > 0.2f)
+		{
+			actionPtrs.push_back(std::make_unique<Split>(b));
+		}
+	});
+
 	world.SetContactListener( &mrLister );
 }
 
@@ -79,6 +80,31 @@ void Game::UpdateModel()
 {
 	const float dt = ft.Mark();
 	world.Step( dt,8,3 );
+	/*
+	while (!wnd.kbd.KeyIsEmpty())
+	{
+		auto e = wnd.kbd.ReadKey();
+		if (e.IsPress() && e.GetCode() == VK_SPACE)
+		{
+			auto children = boxPtrs.front()->Split(world);
+			boxPtrs.insert(boxPtrs.end(),
+				std::make_move_iterator(children.begin()),
+				std::make_move_iterator(children.end()));
+		}
+	}
+	*/
+
+	for (auto& pa : actionPtrs)
+	{
+		pa->Do(boxPtrs, world);
+	}
+	actionPtrs.clear();
+	// remove dying boxes
+	boxPtrs.erase(
+		std::remove_if(boxPtrs.begin(), boxPtrs.end(), std::mem_fn(&Box::IsDying)),
+		boxPtrs.end()
+	);
+	
 }
 
 void Game::ComposeFrame()
